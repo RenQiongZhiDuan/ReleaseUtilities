@@ -18,6 +18,8 @@ namespace PumpUpdateutilities
 
         public static string PumpUpdateReleaseNotes = "PumpUpdate.htm";
 
+        public static string TempSavedFile = "Temp.htm";
+
         public static List<string> ValidPumpDriverUpdateExtList = new List<string>() { ".dll", ".app", ".nxe", ".nei" };
 
         public static string PumpDriverExt = @".dll";
@@ -27,15 +29,42 @@ namespace PumpUpdateutilities
         public static class ReleaseType
         {
             public static string DESKTOP = "Desktop";
-            public static string Embedded = "Embedded";
+            public static string EMBEDDED = "Embedded";
+            public static string PUMPUPDATE = "PumpUpdate";
+        }
+    }
+
+    public sealed class TargetType
+    {
+        private string _target;
+        private string _constructionPath;
+        private string _releasePath;
+
+        private TargetType(string target, string constructionPath, string releasePath)
+        {
+            _target = target;
+            _constructionPath = constructionPath;
+            _releasePath = releasePath;
         }
 
-        public static class HTMLTag
+        public string GetTargetType()
         {
-            public static string SectionTag = "h1";
-            public static string DriverOrDBTag = "h3";
-            public static string ReleaseNotesTag = "li";
+            return _target;
         }
+
+        public string GetConstractionPath()
+        {
+            return _constructionPath;
+        }
+
+        public string GetReleasePath()
+        {
+            return _releasePath;
+        }
+
+       // public static readonly TargetType PumpUpdateRelease = new TargetType(Parameters.ReleaseType.PUMPUPDATE, Parameters.);
+
+
     }
 
     public sealed class SupportedHTMLTag
@@ -43,6 +72,10 @@ namespace PumpUpdateutilities
         private readonly int _value;
         private readonly string _tag;
 
+
+        public static readonly SupportedHTMLTag TableTag = new SupportedHTMLTag("table");
+        public static readonly SupportedHTMLTag TableRowTag = new SupportedHTMLTag("tr");
+        public static readonly SupportedHTMLTag TableCellTag = new SupportedHTMLTag("td");
         /// <summary>
         /// Section Header
         /// </summary>
@@ -72,6 +105,11 @@ namespace PumpUpdateutilities
         {
             _tag = tag;
             _value = value;
+        }
+
+        private SupportedHTMLTag(string tag)
+        {
+            _tag = tag;
         }
 
         public override string ToString()

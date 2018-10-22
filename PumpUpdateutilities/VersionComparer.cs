@@ -28,6 +28,8 @@ namespace PumpUpdateutilities
             // get versions from construction folder
             string constructionPath = Path.Combine(Parameters.ServerConstructionPath, releaseDateString);
 
+            // hack for emb
+            constructionPath = @"\\appserv\files\Releases\Construction\Embedded\EMB v1.3.1\Root\Enabler\Programs\Drivers";
             GetListFrom(constructionPath);
 
             // get versions from release notes
@@ -36,6 +38,8 @@ namespace PumpUpdateutilities
             releaseFolder = Path.Combine(Parameters.ServerReleaseNotePath, releaseFolder);
             string releasePath = Path.Combine(releaseFolder, Parameters.PumpUpdateReleaseNotes);
 
+            //hack for emb
+            releasePath = @"\\appserv\files\Releases\PumpUpdate\2018\PumpUpdate 2018.10.05.0\PumpUpdate.htm";
             GetListFrom(releasePath);
 
             if(constuctionVerions!= null &&
@@ -50,7 +54,7 @@ namespace PumpUpdateutilities
         {
             if (!File.Exists(path) && !Directory.Exists(path))
             {
-                Console.WriteLine("{0} doesn't exist");
+                Console.WriteLine("{0} doesn't exist", path);
                 return;
             }
 

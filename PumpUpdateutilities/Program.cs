@@ -15,10 +15,14 @@ namespace PumpUpdateutilities
             /*
              * 
              * Test Section
-             * */
+            */ 
 
             WebPageAnalyzer analyzer = new WebPageAnalyzer(System.IO.Path.Combine(Parameters.InternalNotesPath, Parameters.PendingReleaselNotes));
-            analyzer.AnalyzeNotes("Release");
+            Dictionary<string, IReleaseNotes> PendingChanges = analyzer.AnalyzeSectionContent("Release");
+            analyzer.ReloadHtml(System.IO.Path.Combine(Parameters.InternalNotesPath, Parameters.PumpUpdateReleaseNotes));
+            Dictionary<string, IReleaseNotes> PumpUpdateReleaseNotes = analyzer.AnalyzeSectionContent("Pump Update - 05 October 2018");
+            Dictionary<string, IReleaseNotes> AllNotes = WebPageAnalyzer.Merge(PendingChanges, PumpUpdateReleaseNotes);
+
 
             string inputString = Console.ReadLine();
 

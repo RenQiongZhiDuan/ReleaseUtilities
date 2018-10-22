@@ -25,11 +25,39 @@ namespace PumpUpdateutilities
             doc.Load(htmlFilePath);
         }
 
+        #region Public Methods
+
         public void ReloadHtml(string htmlPath)
         {
             htmlFilePath = htmlPath;
             doc.Load(htmlFilePath);
         }
+
+        // TODO:
+        // Issue: Needs to be able to output the driver version, database name,
+        // this requires to refactoring the IReleaseNotes class
+        public static void SaveTo(string path, Dictionary<string, IReleaseNotes> content)
+        {
+            if(!File.Exists(path))
+            {
+                File.Create(path);
+            }
+
+            using (StreamWriter sw = new StreamWriter(path, false))
+            {
+                foreach(KeyValuePair<string, IReleaseNotes> contentItem in content)
+                {
+                    string title = string.Format(contentItem.Value.Name);
+                    sw.WriteLine(contentItem.Key);
+                    foreach(string notes in contentItem.Value.Notes)
+                    {
+                        sw.WriteLine(notes);
+                    }
+                    sw.WriteLine("<br>");
+                }
+            }
+        }
+
         /// <summary>
         /// analyze specific section
         /// </summary>
@@ -106,21 +134,6 @@ namespace PumpUpdateutilities
             return fileVersions;
         }
 
-        private void ValidName(ref string contentString)
-        {
-            if (contentString.ToLower().Contains(Parameters.PumpDriverExt))
-            {
-                contentString = Path.GetFileNameWithoutExtension(contentString);
-            }
-            else if (contentString.ToLower().Contains(Parameters.FirmwareExtList[0]))
-            {
-                string[] nameWithExt = contentString.Split('.');
-                contentString = nameWithExt[0];
-            }
-            else
-                contentString = null;
-        }
-
         /// <summary>
         /// analyze table content
         /// </summary>
@@ -164,6 +177,195 @@ namespace PumpUpdateutilities
             return fileVersions;
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="SectionName">Full/Part of the Content of the Secion</param>
+        /// <returns></returns>
+        public Dictionary<string, IReleaseNotes> AnalyzeSectionContent(string sectionName)
+        {
+            // Driver/Database name + Release Notes
+            Dictionary<string, IReleaseNotes> itemNotesList = new Dictionary<string, IReleaseNotes>();
+
+            SupportedHTMLTag HeaderTag = SupportedHTMLTag.HeaderOneTag;
+            // all section tags are using h1
+            string xPath = string.Format(@"//{0}[contains(.,'{1}')]", HeaderTag, sectionName);
+            // starts from the first node that is using the h1 node
+            HtmlNode sectionNode = doc.DocumentNode.SelectSingleNode(xPath);
+
+            // unable to find the section you need
+            if(sectionNode == null)
+            {
+                HeaderTag = SupportedHTMLTag.HeaderTwoTag;
+                // for Release Notes, h2 is the Release Date and Time.
+                xPath = string.Format(@"//{0}[contains(.,'{1}')]", HeaderTag, sectionName);
+                sectionNode = doc.DocumentNode.SelectSingleNode(xPath);
+                if(sectionNode == null)
+                    return null;
+            }
+
+            // Get all sub driver/ firmware node from the selected section
+            var sectionNextSibling = sectionNode.NextSibling;
+
+            while( sectionNextSibling != null && 
+                !sectionNextSibling.Name.Equals(
+                HeaderTag.ToString(), StringComparison.CurrentCultureIgnoreCase) )
+            {
+                 // If this is a h3 tag - for Drivers and database
+                if(sectionNextSibling.NodeType == HtmlNodeType.Element && 
+                    sectionNextSibling.Name.Equals(SupportedHTMLTag.HeaderThreeTag.ToString(), StringComparison.CurrentCultureIgnoreCase)) // driver entry
+                {
+                    IReleaseNotes ItemNotes = GetNodeContent(sectionNextSibling);
+                    if (ItemNotes == null)
+                    {
+                        sectionNextSibling = sectionNextSibling.NextSibling;
+                        continue;
+                    }
+
+                    string itemName = null;
+                    if (ItemNotes is DriverReleaseNotes)
+                        itemName = ((DriverReleaseNotes)ItemNotes).DriverDllName;
+                    else
+                        itemName = ((OtherReleaseNotes)ItemNotes).Name;
+
+                    var releaseNode = sectionNextSibling.SelectSingleNode(string.Format("//{0}", SupportedHTMLTag.UnorderedTag.ToString()));
+                    
+                    var pendingReleaseNotes = GetNodeContent(sectionNextSibling, SupportedHTMLTag.HeaderThreeTag);
+
+                    // only add into if there is a release notes for the driver
+                    if (pendingReleaseNotes.Count > 0)
+                    {
+                        if(itemNotesList.ContainsKey(itemName)) // here the name comes with version: Example Pump Driver Name (ExampleDriver.DLL) v0.0.0
+                        {
+                            IReleaseNotes TempReleaseNotes = itemNotesList[itemName];
+                            List<string> existingNodes = itemNotesList[itemName].Notes;
+                            pendingReleaseNotes.AddRange(existingNodes);
+                            itemNotesList.Remove(itemName);
+                            TempReleaseNotes.Notes = pendingReleaseNotes;
+                            ItemNotes = TempReleaseNotes;
+                        }
+                        else
+                        {
+                            ItemNotes.Notes = pendingReleaseNotes;
+                        }
+                        itemNotesList.Add(itemName, ItemNotes);
+                        Console.WriteLine("{0,-15} With Release Notes Count: {1,5}", itemName, pendingReleaseNotes.Count);
+                        foreach (string notes in pendingReleaseNotes)
+                            Console.WriteLine("\t{0}", notes);
+                        Console.WriteLine("\t\n");
+                    }
+                }
+                sectionNextSibling = sectionNextSibling.NextSibling;
+            }
+
+            return itemNotesList;
+        }
+
+        /// <summary>
+        /// Merge changes with target section, then display to the user
+        /// </summary>
+        /// <param name="content"></param>
+        /// <returns></returns>
+        public static Dictionary<string, IReleaseNotes> Merge(Dictionary<string, IReleaseNotes> sourceContent, Dictionary<string, IReleaseNotes> targetContent)
+        {
+            #region Idears
+            /*
+                        // bool updateResult = false;
+                        // Option One:
+
+                        //foreach item in the content, search the target file 
+                        // if can locate the item, then compare the sub notes
+                        // if cannot locate the item, add it in
+
+
+                        // Option Two:
+
+                        // Get the whole content from the target 
+                        // Compare two lists and remove the whole content from the target 
+                        // after modified the content, add it back to the target
+            */
+            #endregion
+
+            // option Three: :)
+            // merge the changes and display it to the user to decide what to put in
+            Dictionary<string, IReleaseNotes> mergedContent = new Dictionary<string, IReleaseNotes>(targetContent);
+
+            foreach (KeyValuePair<string, IReleaseNotes> sourceItem in sourceContent)
+            {
+                if(targetContent.ContainsKey(sourceItem.Key))
+                {
+                    List<string> notes = MergeNotes(sourceContent[sourceItem.Key].Notes, targetContent[sourceItem.Key].Notes);
+                    mergedContent[sourceItem.Key].Notes = notes;
+                }
+                else
+                {
+                    targetContent.Add(sourceItem.Key, sourceItem.Value);
+                }
+            }
+
+            return mergedContent;
+        }
+
+        #endregion
+
+
+        #region Private Support Methods
+        private static List<string> MergeNotes(List<string> sourceNotes, List<string> targetNotes)
+        {
+            List<string> mergedNotes = new List<string>();
+
+            mergedNotes.AddRange(targetNotes);
+
+            foreach(string sourceItem in sourceNotes)
+            {
+                if(!targetNotes.Contains(sourceItem))
+                {
+                    mergedNotes.Add(sourceItem);
+                }
+            }
+
+            return mergedNotes;
+        }
+
+        private IReleaseNotes GetNodeContent(HtmlNode node)
+        {
+            string pattern = @"(.*)\((.*\.dll)\)\s+v(\d+\.\d+\.?\d*)";
+            Regex reg = new Regex(pattern, RegexOptions.IgnoreCase);
+            Match match = reg.Match(node.InnerText);
+            if (match.Success)
+            {
+                DriverReleaseNotes DriverNotes = new DriverReleaseNotes();
+                GroupCollection groups = match.Groups;
+                DriverNotes.Name = groups[1].ToString();
+                DriverNotes.DriverDllName = groups[2].ToString();
+                DriverNotes.DriverVersion = new Version(groups[3].ToString());
+                DriverNotes.Notes = new List<string>();
+                return DriverNotes;
+            }
+            else// this may be a Database entry
+            {
+                OtherReleaseNotes OtherNotes = new OtherReleaseNotes();
+                OtherNotes.Notes = new List<string>();
+                OtherNotes.Name = node.InnerText;
+                return OtherNotes;
+            }
+        }
+
+        private void ValidName(ref string contentString)
+        {
+            if (contentString.ToLower().Contains(Parameters.PumpDriverExt))
+            {
+                contentString = Path.GetFileNameWithoutExtension(contentString);
+            }
+            else if (contentString.ToLower().Contains(Parameters.FirmwareExtList[0]))
+            {
+                string[] nameWithExt = contentString.Split('.');
+                contentString = nameWithExt[0];
+            }
+            else
+                contentString = null;
+        }
+
         private bool GetVersionFromString(string contentString, ref Version fileVersion)
         {
             bool isVersion = false;
@@ -181,7 +383,7 @@ namespace PumpUpdateutilities
                 pattern = @"v(\d+)\.(\d+)\s+build\s+(\d+)";
                 reg = new Regex(pattern, RegexOptions.IgnoreCase);
                 match = reg.Match(contentString);
-                if(match.Success)
+                if (match.Success)
                 {
                     int major = Convert.ToInt32(match.Groups[1].ToString());
                     int minor = Convert.ToInt32(match.Groups[2].ToString());
@@ -191,77 +393,6 @@ namespace PumpUpdateutilities
                 }
             }
             return isVersion;
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="SectionName">Full/Part of the Content of the Secion</param>
-        /// <returns></returns>
-        public Dictionary<string, ReleaseNotes> AnalyzeNotes(string SectionName)
-        {
-            Dictionary<string, ReleaseNotes> DriverNotes = new Dictionary<string, ReleaseNotes>();
-
-            // all section tags are using h1
-            string xPath = string.Format(@"//{0}[contains(.,'{1}')]", SupportedHTMLTag.HeaderOneTag ,SectionName);
-            // starts from the first node that is using the h1 node
-            HtmlNode sectionNode = doc.DocumentNode.SelectSingleNode(xPath);
-
-            // unable to find the section you need
-            if(sectionNode == null)
-            {
-                return null;
-            }
-
-            // Get all sub driver/ firmware node from the selected section
-            var nextNode = sectionNode.NextSibling;
-            while( nextNode != null && 
-                !nextNode.Name.Equals(
-                SupportedHTMLTag.HeaderOneTag.ToString(), StringComparison.CurrentCultureIgnoreCase) )
-            {
-                 // If this is a h3 tag - for Drivers and database
-                if(nextNode.NodeType == HtmlNodeType.Element && 
-                    nextNode.Name.Equals(SupportedHTMLTag.HeaderThreeTag.ToString(), StringComparison.CurrentCultureIgnoreCase)) // driver entry
-                {
-                    IReleaseNotes DriverReleaseNotes = ProcessTitleContent(nextNode.InnerText);
-                    if (DriverReleaseNotes == null)
-                    {
-                        nextNode = nextNode.NextSibling;
-                        continue;
-                    }
-
-                    string driverDllName = DriverReleaseNotes.DriverDllName;
-                    var releaseNode = nextNode.SelectSingleNode(string.Format("//{0}", SupportedHTMLTag.UnorderedTag.ToString()));
-                    
-                    var pendingReleaseNotes = GetNodeContent(nextNode, SupportedHTMLTag.HeaderThreeTag);
-
-                    // only add into if there is a release notes for the driver
-                    if (pendingReleaseNotes.Count > 0)
-                    {
-                        if(DriverNotes.ContainsKey(driverDllName)) // here the name comes with version: Example Pump Driver Name (ExampleDriver.DLL) v0.0.0
-                        {
-                            ReleaseNotes TempReleaseNotes = DriverNotes[driverDllName];
-                            List<string> existingNodes = DriverNotes[driverDllName].Notes;
-                            pendingReleaseNotes.AddRange(existingNodes);
-                            DriverNotes.Remove(driverDllName);
-                            TempReleaseNotes.Notes = pendingReleaseNotes;
-                            DriverReleaseNotes = TempReleaseNotes;
-                        }
-                        else
-                        {
-                            DriverReleaseNotes.Notes = pendingReleaseNotes;
-                        }
-                        DriverNotes.Add(driverDllName, DriverReleaseNotes);
-                        Console.WriteLine("{0,-15} With Release Notes Count: {1,5}", driverDllName, pendingReleaseNotes.Count);
-                        foreach (string notes in pendingReleaseNotes)
-                            Console.WriteLine("\t{0}", notes);
-                        Console.WriteLine("\t\n");
-                    }
-                }
-                nextNode = nextNode.NextSibling;
-            }
-
-            return DriverNotes;
         }
 
         /// <summary>
@@ -283,14 +414,14 @@ namespace PumpUpdateutilities
         /// 
         /// Passing NodeH2 in, and get content from li, return 1,2,3 in a list
         /// 
-       
+
         private List<String> GetNodeContent(HtmlNode currentNode, SupportedHTMLTag tagExtractFrom, bool tagHasAtt = false)
         {
             List<string> notes = new List<string>();
 
             HtmlNode ulNode = currentNode.NextSibling;
 
-            while(ulNode != null &&
+            while (ulNode != null &&
                 !ulNode.Name.Equals(SupportedHTMLTag.UnorderedTag.ToString(), StringComparison.CurrentCultureIgnoreCase))
             {
                 ulNode = ulNode.NextSibling;
@@ -307,14 +438,14 @@ namespace PumpUpdateutilities
                         var firstChild = liNode.FirstChild;
                         if (firstChild.HasAttributes)
                         {
-                            if (isEmbRelease && firstChild.InnerText.Equals(Parameters.ReleaseType.Embedded, StringComparison.CurrentCultureIgnoreCase))
+                            if (isEmbRelease && firstChild.InnerText.Equals(Parameters.ReleaseType.EMBEDDED, StringComparison.CurrentCultureIgnoreCase))
                             {
                                 if (liNode.InnerText.Length > 0)
                                 {
                                     HtmlNode tempLiNode = liNode;
                                     RemoveUnneededTag(SupportedHTMLTag.SpanTag, ref tempLiNode);
                                     notes.Add(tempLiNode.OuterHtml);
-                                   // tempLiNode.Remove();
+                                    // tempLiNode.Remove();
                                 }
                             }
                             else if (!isEmbRelease && firstChild.InnerText.Equals(Parameters.ReleaseType.DESKTOP, StringComparison.CurrentCultureIgnoreCase))
@@ -324,7 +455,7 @@ namespace PumpUpdateutilities
                                     HtmlNode tempLiNode = liNode;
                                     RemoveUnneededTag(SupportedHTMLTag.SpanTag, ref tempLiNode);
                                     notes.Add(tempLiNode.OuterHtml);
-                                   // tempLiNode.Remove();
+                                    // tempLiNode.Remove();
                                 }
                             }
                         }
@@ -335,7 +466,7 @@ namespace PumpUpdateutilities
                         {
                             HtmlNode tempLiNode = liNode;
                             notes.Add(tempLiNode.OuterHtml);
-                           // tempLiNode.Remove();
+                            // tempLiNode.Remove();
                         }
                     }
                 }
@@ -348,9 +479,9 @@ namespace PumpUpdateutilities
         {
             var childrenNodes = node.ChildNodes;
             List<HtmlNode> nodesNeedToRemove = new List<HtmlNode>();
-            foreach(HtmlNode childNode in childrenNodes)
+            foreach (HtmlNode childNode in childrenNodes)
             {
-                if(childNode.Name.Equals(tagNeedsToRemove.ToString(), StringComparison.CurrentCultureIgnoreCase))
+                if (childNode.Name.Equals(tagNeedsToRemove.ToString(), StringComparison.CurrentCultureIgnoreCase))
                 {
                     nodesNeedToRemove.Add(childNode);
                 }
@@ -360,29 +491,6 @@ namespace PumpUpdateutilities
                 node.RemoveChild(tempNode);
         }
 
-        private IReleaseNotes ProcessTitleContent(string title)
-        {
-            string pattern = @"(.*)\((.*\.dll)\)\s+v(\d+\.\d+\.?\d*)";
-            Regex reg = new Regex(pattern, RegexOptions.IgnoreCase);
-            Match match = reg.Match(title);
-            if(match.Success)
-            {
-                DriverReleaseNotes DriverNotes = new DriverReleaseNotes();
-                GroupCollection groups = match.Groups;
-                DriverNotes.Name = groups[1].ToString();
-                DriverNotes.DriverDllName = groups[2].ToString();
-                DriverNotes.DriverVersion = new Version(groups[3].ToString());
-                DriverNotes.Notes = new List<string>();
-                return DriverNotes;
-            }
-            else// this may be a Database entry
-            {
-                Console.WriteLine("Unable to process: {0,15}", title);
-                DatabaseReleaseNotes DatabaseNotes = new DatabaseReleaseNotes();
-                DatabaseNotes.Notes = new List<string>();
-                DatabaseNotes.Name = title;
-                return DatabaseNotes;
-            }
-        }
+        #endregion
     }
 }
