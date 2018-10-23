@@ -24,7 +24,9 @@ namespace PumpUpdateutilities
 
         public static string PumpDriverExt = @".dll";
 
-        public static string[] FirmwareExtList = { "app", "nxe", "nei" };
+        public static List<string> FirmwareExtList = new List<string> { "app", "nxe", "nei" };
+
+        public static List<string> InvalidContent = new List<string> { "exampledriver.dll"};
 
         public static class ReleaseType
         {
@@ -32,6 +34,8 @@ namespace PumpUpdateutilities
             public static string EMBEDDED = "Embedded";
             public static string PUMPUPDATE = "PumpUpdate";
         }
+
+        public static string LogFolder = @"C:\";
     }
 
     public sealed class TargetType
@@ -119,4 +123,5 @@ namespace PumpUpdateutilities
 
     }
         
+    
 }

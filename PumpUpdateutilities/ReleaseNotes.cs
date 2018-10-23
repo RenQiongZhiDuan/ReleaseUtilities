@@ -8,7 +8,18 @@ namespace PumpUpdateutilities
 {
     public interface IReleaseNotes
     {
-        string Name { get; set; }
+        /// <summary>
+        /// What you see from the page
+        /// For Driver - this is the name.dll
+        /// For other - this is the content
+        /// </summary>
+        string DisplayCoreTitle { get; set; }
+        /// <summary>
+        /// What you see from the page source
+        /// For Driver - this is the <h3>XXX (XXX.dll) v1.2.3</h3>
+        /// For other - this is the <h3>XXX</h3>
+        /// </summary>
+        string PageTitle { get; set; }
         List<string> Notes { get; set; }
 
         IReleaseNotes Clone(IReleaseNotes notes);
@@ -17,21 +28,12 @@ namespace PumpUpdateutilities
 
     public class DriverReleaseNotes :  IReleaseNotes
     {
-        public string DriverDllName;
-
         public Version DriverVersion;
 
-        public string Name { get; set; }
+        public string DisplayCoreTitle { get; set; }
+
+        public string PageTitle { get; set; }
         public List<string> Notes { get; set; }
-
-        public IReleaseNotes Clone(DriverReleaseNotes notes)
-        {
-            DriverReleaseNotes newDriverRN = new DriverReleaseNotes();
-
-            newDriverRN.Name = notes.Name;
-
-            return newDriverRN;
-        }
 
         public IReleaseNotes Clone(IReleaseNotes notes)
         {
@@ -39,8 +41,8 @@ namespace PumpUpdateutilities
             if (notes is DriverReleaseNotes)
             {
                 newDriverRN = new DriverReleaseNotes();
-                newDriverRN.Name = notes.Name;
-                newDriverRN.DriverDllName = ((DriverReleaseNotes)notes).DriverDllName;
+                newDriverRN.DisplayCoreTitle = notes.DisplayCoreTitle;
+                newDriverRN.PageTitle = ((DriverReleaseNotes)notes).PageTitle;
                 newDriverRN.DriverVersion = ((DriverReleaseNotes)notes).DriverVersion;
                 newDriverRN.Notes = ((DriverReleaseNotes)notes).Notes.ToList();
             }
@@ -50,7 +52,8 @@ namespace PumpUpdateutilities
 
     public class OtherReleaseNotes :  IReleaseNotes
     {
-        public string Name { get; set; }
+        public string DisplayCoreTitle { get; set; }
+        public string PageTitle { get; set; }
         public List<string> Notes { get; set; }
 
         public IReleaseNotes Clone(IReleaseNotes notes)
@@ -59,7 +62,8 @@ namespace PumpUpdateutilities
             if (notes is OtherReleaseNotes)
             {
                 newNotes = new OtherReleaseNotes();
-                newNotes.Name = notes.Name;
+                newNotes.DisplayCoreTitle = notes.DisplayCoreTitle;
+                newNotes.PageTitle = notes.PageTitle;
                 newNotes.Notes = ((OtherReleaseNotes)notes).Notes.ToList();
             }
             return newNotes;
