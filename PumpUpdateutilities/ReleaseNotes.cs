@@ -4,69 +4,74 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace PumpUpdateutilities
+namespace ReleaseUtilities
 {
-    public interface IReleaseNotes
+    public interface IReleaseItem
     {
         /// <summary>
         /// What you see from the page
         /// For Driver - this is the name.dll
         /// For other - this is the content
         /// </summary>
-        string DisplayCoreTitle { get; set; }
+        string Name { get; set; }
+
+        Version Version { get; set; }
         /// <summary>
         /// What you see from the page source
         /// For Driver - this is the <h3>XXX (XXX.dll) v1.2.3</h3>
         /// For other - this is the <h3>XXX</h3>
         /// </summary>
-        string PageTitle { get; set; }
+        string NameWithTag { get; set; }
+
         List<string> Notes { get; set; }
 
-        IReleaseNotes Clone(IReleaseNotes notes);
+      //  IReleaseItem Clone(IReleaseItem notes);
         
     }
 
-    public class DriverReleaseNotes :  IReleaseNotes
+    public class DriverItem :  IReleaseItem
     {
-        public Version DriverVersion;
+        public string Name { get; set; }
 
-        public string DisplayCoreTitle { get; set; }
+        public string NameWithTag { get; set; }
 
-        public string PageTitle { get; set; }
+        public Version Version { get; set; }
+
         public List<string> Notes { get; set; }
 
-        public IReleaseNotes Clone(IReleaseNotes notes)
-        {
-            DriverReleaseNotes newDriverRN = null;
-            if (notes is DriverReleaseNotes)
-            {
-                newDriverRN = new DriverReleaseNotes();
-                newDriverRN.DisplayCoreTitle = notes.DisplayCoreTitle;
-                newDriverRN.PageTitle = ((DriverReleaseNotes)notes).PageTitle;
-                newDriverRN.DriverVersion = ((DriverReleaseNotes)notes).DriverVersion;
-                newDriverRN.Notes = ((DriverReleaseNotes)notes).Notes.ToList();
-            }
-            return newDriverRN;
-        }
+        //public IReleaseItem Clone(IReleaseItem notes)
+        //{
+        //    DriverItem newDriverRN = null;
+        //    if (notes is DriverItem)
+        //    {
+        //        newDriverRN = new DriverItem();
+        //        newDriverRN.Name = notes.Name;
+        //        newDriverRN.NameWithTag = ((DriverItem)notes).NameWithTag;
+        //        newDriverRN.DriverVersion = ((DriverItem)notes).DriverVersion;
+        //        newDriverRN.Notes = ((DriverItem)notes).Notes.ToList();
+        //    }
+        //    return newDriverRN;
+        //}
     }
 
-    public class OtherReleaseNotes :  IReleaseNotes
+    public class OtherItem :  IReleaseItem
     {
-        public string DisplayCoreTitle { get; set; }
-        public string PageTitle { get; set; }
+        public string Name { get; set; }
+        public Version Version { get; set; }
+        public string NameWithTag { get; set; }
         public List<string> Notes { get; set; }
 
-        public IReleaseNotes Clone(IReleaseNotes notes)
-        {
-            OtherReleaseNotes newNotes = null;
-            if (notes is OtherReleaseNotes)
-            {
-                newNotes = new OtherReleaseNotes();
-                newNotes.DisplayCoreTitle = notes.DisplayCoreTitle;
-                newNotes.PageTitle = notes.PageTitle;
-                newNotes.Notes = ((OtherReleaseNotes)notes).Notes.ToList();
-            }
-            return newNotes;
-        }
+        //public IReleaseItem Clone(IReleaseItem notes)
+        //{
+        //    OtherItem newNotes = null;
+        //    if (notes is OtherItem)
+        //    {
+        //        newNotes = new OtherItem();
+        //        newNotes.Name = notes.Name;
+        //        newNotes.NameWithTag = notes.NameWithTag;
+        //        newNotes.Notes = ((OtherItem)notes).Notes.ToList();
+        //    }
+        //    return newNotes;
+        //}
     }
 }

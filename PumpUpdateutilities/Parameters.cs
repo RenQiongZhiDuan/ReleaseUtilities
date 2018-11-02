@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace PumpUpdateutilities
+namespace ReleaseUtilities
+
 {
     static public class Parameters
     {
@@ -12,13 +14,14 @@ namespace PumpUpdateutilities
 
         public static string ServerReleaseNotePath = @"\\appserv\files\Releases\Internal Releases\";
 
-        public static string InternalNotesPath = @"C:\WORK\Enabler\Install\PumpUpdate\";
+        static string localPumpUpdateNotesPath = @"C:\WORK\Enabler\Install\PumpUpdate\";
         
-        public static string PendingReleaselNotes = @"PendingChanges.htm";
+        static string PendingReleaselNotes = @"PendingChanges.htm";
 
-        public static string PumpUpdateReleaseNotes = "PumpUpdate.htm";
+        static string PumpUpdateReleaseNotes = "PumpUpdate.htm";
 
-        public static string TempSavedFile = "Temp.htm";
+        static string TempHtmFile = "Temp.htm";
+        static string TempTxtFile = "Temp.txt";
 
         public static List<string> ValidPumpDriverUpdateExtList = new List<string>() { ".dll", ".app", ".nxe", ".nei" };
 
@@ -28,14 +31,71 @@ namespace PumpUpdateutilities
 
         public static List<string> InvalidContent = new List<string> { "exampledriver.dll"};
 
-        public static class ReleaseType
+        public static class PumpUpdate
         {
-            public static string DESKTOP = "Desktop";
-            public static string EMBEDDED = "Embedded";
-            public static string PUMPUPDATE = "PumpUpdate";
+            public static string ReleaseSection = "Pump Update -";
         }
 
+        public static class PendingChanges
+        {
+            public static string ReadyToRelease = "Changes Ready for Release";
+        }
+
+        public enum ReleaseType
+        {
+            DESKTOP,
+            EMBEDDED,
+            PUMPUPDATE,
+        }
+
+        public static string[] ReleaseTypeStr =  { "Desktop", "Embedded", "PumpUpdate" };
+
         public static string LogFolder = @"C:\";
+
+
+        #region Support Properties
+
+        public static string GetLocalPumpUpdateFolder
+        {
+            get
+            {
+                return Path.Combine(Parameters.localPumpUpdateNotesPath);
+            }
+        }
+
+        public static string GetPumpUpdateTempHtmPath
+        {
+            get
+            {
+                return Path.Combine(Parameters.localPumpUpdateNotesPath, Parameters.TempHtmFile);
+            }
+        }
+
+        public static string GetPumpUpdateTempTxtPath
+        {
+            get
+            {
+                return Path.Combine(Parameters.localPumpUpdateNotesPath, Parameters.TempTxtFile);
+            }
+        }
+
+        public static string GetLocalPendingPath
+        {
+            get
+            {
+                return Path.Combine(GetLocalPumpUpdateFolder, Parameters.PendingReleaselNotes);
+            }
+
+        }
+
+        public static string GetLocalPumpUpdatePath
+        {
+            get
+            {
+                return Path.Combine(GetLocalPumpUpdateFolder, Parameters.PumpUpdateReleaseNotes);
+            }
+        }
+        #endregion
     }
 
     public sealed class TargetType
@@ -65,9 +125,6 @@ namespace PumpUpdateutilities
         {
             return _releasePath;
         }
-
-       // public static readonly TargetType PumpUpdateRelease = new TargetType(Parameters.ReleaseType.PUMPUPDATE, Parameters.);
-
 
     }
 

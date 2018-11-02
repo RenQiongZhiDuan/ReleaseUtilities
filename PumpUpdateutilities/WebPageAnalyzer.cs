@@ -6,7 +6,7 @@ using System.Data;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 
-namespace PumpUpdateutilities
+namespace ReleaseUtilities
 {
     class WebPageAnalyzer
     {
@@ -36,7 +36,7 @@ namespace PumpUpdateutilities
         // TODO:
         // Issue: Needs to be able to output the driver version, database name,
         // this requires to refactoring the IReleaseNotes class
-        public static void SaveTo(string path, List<IReleaseNotes> content)
+        public static void SaveTo(string path, List<IReleaseItem> content)
         {
             if(!File.Exists(path))
             {
@@ -45,9 +45,9 @@ namespace PumpUpdateutilities
 
             using (StreamWriter sw = new StreamWriter(path, false))
             {
-                foreach(IReleaseNotes ReleaseNotes in content)
+                foreach(IReleaseItem ReleaseNotes in content)
                 {
-                    string title = string.Format(ReleaseNotes.PageTitle);
+                    string title = string.Format(ReleaseNotes.NameWithTag);
                     sw.WriteLine(title);
                     sw.WriteLine("<"+SupportedHTMLTag.UnorderedTag.ToString()+ " class=\"spacedlist\">");
                     foreach(string notes in ReleaseNotes.Notes)
@@ -60,7 +60,7 @@ namespace PumpUpdateutilities
         }
 
         /// <summary>
-        /// analyze specific section
+        /// analyze specific section - this is only valid for pump update for now
         /// </summary>
         public Dictionary<string, Version> AnalyzeContent()
         {
@@ -79,7 +79,7 @@ namespace PumpUpdateutilities
             fileVersions = new Dictionary<string, Version>();
 
             bool sectionFound = false;
-            foreach( var h2Nodes in doc.DocumentNode.Descendants("h2"))
+            foreach( var h2Nodes in doc.DocumentNode.Descendants(SupportedHTMLTag.HeaderTwoTag.ToString()))
             {
                 if (sectionFound)
                     break;
@@ -97,7 +97,7 @@ namespace PumpUpdateutilities
 
                 HtmlNode nextNode = h2Nodes.NextSibling;
 
-                while (nextNode != null && !nextNode.Name.ToLower().Equals("h2"))
+                while (nextNode != null && !nextNode.Name.ToLower().Equals(SupportedHTMLTag.HeaderTwoTag.ToString()))
                 {
                     if(nextNode.NodeType == HtmlNodeType.Element && 
                         nextNode.Name.ToLower().Equals("h3"))
@@ -138,44 +138,49 @@ namespace PumpUpdateutilities
         /// <summary>
         /// analyze table content
         /// </summary>
-        public Dictionary<string, Version> AnalyzeTable()
+        public List<IReleaseItem> AnalyzeTable()
         {
-            HtmlDocument doc = new HtmlDocument();
             fileVersions = new Dictionary<string, Version>();
+            List<IReleaseItem> tableItems = new List<IReleaseItem>();
 
             Dictionary<string, FileVersionInfo> list = new Dictionary<string, FileVersionInfo>();
-
-            doc.Load(htmlFilePath);
-
-            foreach(var tableNode in doc.DocumentNode.Descendants("table"))
+            
+            foreach(var tableNode in doc.DocumentNode.Descendants(SupportedHTMLTag.TableTag.ToString()))
             {
-                foreach(var node in tableNode.Descendants("tr"))
+                foreach(var node in tableNode.Descendants(SupportedHTMLTag.TableRowTag.ToString()))
                 {
+                    DriverItem driverItem = new DriverItem();
+
                     string fileName = null;
                     Version fileVersion = null;
                     foreach (var element in node.ChildNodes)
                     {
                         // all version starts with 'v'
-                        if (element.Name.ToLower().Equals("td"))
+                        if (element.Name.ToLower().Equals(SupportedHTMLTag.TableCellTag.ToString()))
                         {
                             string contentString = element.InnerText;
-                            Console.WriteLine(contentString);
+                            //Console.WriteLine(contentString);
                             if (GetVersionFromString(contentString, ref fileVersion))
                                 continue;
 
-                            ValidName(ref contentString);
-                            fileName = contentString;
+                            //ValidName(ref contentString);
+
+                            fileName = contentString.Trim(); ;
                         } //end if
  
                     } //end foreach
                     if(fileName !=null && fileVersion != null)
                     {
-                        fileVersions.Add(fileName.Trim().ToLower(), fileVersion);
-                        Console.WriteLine("Adding {0} version {1} into", fileName, fileVersion.ToString());
+                        driverItem.Name = fileName;
+                        driverItem.Version = fileVersion;
+                        tableItems.Add(driverItem);
+                        //fileVersions.Add(fileName.Trim().ToLower(), fileVersion);
+                        Console.WriteLine("{0, -25}\tVersion: {1, -10} into", fileName, fileVersion);
                     }
                 }
             }
-            return fileVersions;
+            //return fileVersions;
+            return tableItems;
         }
 
         /// <summary>
@@ -183,14 +188,15 @@ namespace PumpUpdateutilities
         /// </summary>
         /// <param name="SectionName">Full/Part of the Content of the Secion</param>
         /// <returns></returns>
-        public List<IReleaseNotes> AnalyzeSectionContent(string sectionName)
+        public List<IReleaseItem> AnalyzeSectionContent(string sectionName)
         {
             // Driver/Database name + Release Notes
-            List<IReleaseNotes> ContentList = new List<IReleaseNotes>();
+            List<IReleaseItem> ContentList = new List<IReleaseItem>();
 
             SupportedHTMLTag HeaderTag = SupportedHTMLTag.HeaderOneTag;
             // all section tags are using h1
             string xPath = string.Format(@"//{0}[contains(.,'{1}')]", HeaderTag, sectionName);
+            
             // starts from the first node that is using the h1 node
             HtmlNode sectionNode = doc.DocumentNode.SelectSingleNode(xPath);
 
@@ -199,7 +205,7 @@ namespace PumpUpdateutilities
             {
                 HeaderTag = SupportedHTMLTag.HeaderTwoTag;
                 // for Release Notes, h2 is the Release Date and Time.
-                xPath = string.Format(@"//{0}[contains(.,'{1}')]", HeaderTag, sectionName);
+                 xPath = string.Format(@"//{0}[contains(.,'{1}')]", HeaderTag, sectionName);
                 sectionNode = doc.DocumentNode.SelectSingleNode(xPath);
                 if(sectionNode == null)
                     return null;
@@ -216,9 +222,9 @@ namespace PumpUpdateutilities
                 if(sectionNextSibling.NodeType == HtmlNodeType.Element && 
                     sectionNextSibling.Name.Equals(SupportedHTMLTag.HeaderThreeTag.ToString(), StringComparison.CurrentCultureIgnoreCase)) // driver entry
                 {
-                    IReleaseNotes ReleaseNotes = GetNodeContent(sectionNextSibling);
+                    IReleaseItem ReleaseNotes = GetNodeContent(sectionNextSibling);
 
-                    if (ReleaseNotes == null || !ValidateContent(ReleaseNotes.DisplayCoreTitle))
+                    if (ReleaseNotes == null || !ValidateContent(ReleaseNotes.Name))
                     {
                         sectionNextSibling = sectionNextSibling.NextSibling;
                         continue;
@@ -231,19 +237,18 @@ namespace PumpUpdateutilities
                     // only add into if there is a release notes for the driver
                     if (NewReleaseNotes.Count > 0)
                     {
-                        if(ContentList.Exists(r => r.DisplayCoreTitle.Equals
-                            (ReleaseNotes.DisplayCoreTitle, StringComparison.CurrentCultureIgnoreCase))) // here the name comes with version: Example Pump Driver Name (ExampleDriver.DLL) v0.0.0
+                        if(ContentList.Exists(r => r.Name.Equals
+                            (ReleaseNotes.Name, StringComparison.CurrentCultureIgnoreCase))) // here the name comes with version: Example Pump Driver Name (ExampleDriver.DLL) v0.0.0
                         {
-                            IReleaseNotes existingReleaseNotes = ContentList.Find(r => r.DisplayCoreTitle.Equals(ReleaseNotes.DisplayCoreTitle, StringComparison.CurrentCultureIgnoreCase));
+                            IReleaseItem existingReleaseNotes = ContentList.Find(r => r.Name.Equals(ReleaseNotes.Name, StringComparison.CurrentCultureIgnoreCase));
 
-                            if(ReleaseNotes is DriverReleaseNotes)
+                            if(ReleaseNotes is DriverItem)
                             {
-
-                                if(((DriverReleaseNotes)ReleaseNotes).DriverVersion.CompareTo
-                                    (((DriverReleaseNotes)existingReleaseNotes).DriverVersion) < 0) // new version > existing version
+                                if(((DriverItem)ReleaseNotes).Version.CompareTo
+                                    (((DriverItem)existingReleaseNotes).Version) != 0) // versions are different
                                 {
                                     // update 
-                                    ReleaseNotes = existingReleaseNotes;
+                                    ReleaseNotes.Version = existingReleaseNotes.Version;
                                 }
                             }
                             List<string> ExistingReleaseNotes = existingReleaseNotes.Notes;
@@ -261,16 +266,19 @@ namespace PumpUpdateutilities
                         }
                         // add into the group
                         ContentList.Add(ReleaseNotes);
-
-                        Console.WriteLine("{0,-15} With Release Notes Count: {1,5}", ReleaseNotes.DisplayCoreTitle, NewReleaseNotes.Count);
-                        foreach (string notes in NewReleaseNotes)
-                            Console.WriteLine("\t{0}", notes);
-                        Console.WriteLine("\t\n");
                     }
                 }
                 sectionNextSibling = sectionNextSibling.NextSibling;
             }
 
+            foreach(IReleaseItem item in ContentList)
+            {
+                Console.WriteLine("{0,-25}", item.NameWithTag);
+
+                foreach (string notes in item.Notes)
+                    Console.WriteLine("\t{0}", notes);
+                Console.WriteLine("\t\n");
+            }
             return ContentList;
         }
 
@@ -279,7 +287,7 @@ namespace PumpUpdateutilities
         /// </summary>
         /// <param name="content"></param>
         /// <returns></returns>
-        public static List<IReleaseNotes> Merge(List<IReleaseNotes> sourceContent, List<IReleaseNotes> targetContent)
+        public static List<IReleaseItem> Merge(List<IReleaseItem> sourceContent, List<IReleaseItem> targetContent)
         {
             #region Idears
             /*
@@ -301,10 +309,14 @@ namespace PumpUpdateutilities
 
             // option Three: :)
             // merge the changes and display it to the user to decide what to put in
-           
-            foreach (IReleaseNotes sourceItem in sourceContent)
+           if(targetContent == null)
             {
-                int index = targetContent.FindIndex(t => t.DisplayCoreTitle.Equals(sourceItem.DisplayCoreTitle, StringComparison.CurrentCultureIgnoreCase));
+                targetContent = new List<IReleaseItem>();
+            }
+
+            foreach (IReleaseItem sourceItem in sourceContent)
+            {
+                int index = targetContent.FindIndex(t => t.Name.Equals(sourceItem.Name, StringComparison.CurrentCultureIgnoreCase));
 
                 if(index ==  -1)
                 {
@@ -314,11 +326,11 @@ namespace PumpUpdateutilities
                 {
                     List<string> mergedNotes = MergeNotes(sourceItem.Notes, targetContent[index].Notes);
                     
-                    if(sourceItem is DriverReleaseNotes)
+                    if(sourceItem is DriverItem)
                     {
-                        var tempSourceItem = (DriverReleaseNotes)sourceItem;
+                        var tempSourceItem = (DriverItem)sourceItem;
                      
-                        if(tempSourceItem.DriverVersion.CompareTo(((DriverReleaseNotes)targetContent[index]).DriverVersion) > 0)
+                        if(tempSourceItem.Version.CompareTo(((DriverItem)targetContent[index]).Version) > 0)
                         {
                             //tempNotes = sourceItem;
                            
@@ -352,10 +364,8 @@ namespace PumpUpdateutilities
                     mergedNotes.Add(sourceItem);
                 }
             }
-
             return mergedNotes;
         }
-
 
         private void ValidName(ref string contentString)
         {
@@ -402,27 +412,27 @@ namespace PumpUpdateutilities
         }
 
 
-        private IReleaseNotes GetNodeContent(HtmlNode node)
+        private IReleaseItem GetNodeContent(HtmlNode node)
         {
             string pattern = @"(.*)\((.*\.dll)\)\s+v(\d+\.\d+\.?\d*)";
             Regex reg = new Regex(pattern, RegexOptions.IgnoreCase);
             Match match = reg.Match(node.InnerText);
             if (match.Success)
             {
-                DriverReleaseNotes DriverNotes = new DriverReleaseNotes();
+                DriverItem DriverNotes = new DriverItem();
                 GroupCollection groups = match.Groups;
-                DriverNotes.DisplayCoreTitle = groups[2].ToString(); 
-                DriverNotes.PageTitle = node.OuterHtml; // full format of the title
+                DriverNotes.Name = groups[2].ToString().Trim(); 
+                DriverNotes.NameWithTag = node.OuterHtml; // full format of the title
                 //DriverNotes.DriverDllName = groups[2].ToString();
-                DriverNotes.DriverVersion = new Version(groups[3].ToString());
+                DriverNotes.Version = new Version(groups[3].ToString());
                 DriverNotes.Notes = new List<string>();
                 return DriverNotes;
             }
             else// this may be a Database entry
             {
-                OtherReleaseNotes OtherNotes = new OtherReleaseNotes();
-                OtherNotes.DisplayCoreTitle = node.InnerText;
-                OtherNotes.PageTitle = node.OuterHtml;
+                OtherItem OtherNotes = new OtherItem();
+                OtherNotes.Name = node.InnerText.Trim();
+                OtherNotes.NameWithTag = node.OuterHtml;
                 OtherNotes.Notes = new List<string>();
                 return OtherNotes;
             }
@@ -497,7 +507,7 @@ namespace PumpUpdateutilities
 
                             if(isEmbRelease)
                             {
-                                if (firstChild.InnerText.Equals(Parameters.ReleaseType.EMBEDDED, StringComparison.CurrentCultureIgnoreCase))
+                                if (firstChild.InnerText.Equals(Parameters.ReleaseTypeStr[(int)Parameters.ReleaseType.EMBEDDED], StringComparison.CurrentCultureIgnoreCase))
                                 {
                                     if (liNode.InnerText.Length > 0)
                                     {
@@ -510,7 +520,7 @@ namespace PumpUpdateutilities
                             }
                             else
                             {
-                                if (firstChild.InnerText.Equals(Parameters.ReleaseType.DESKTOP, StringComparison.CurrentCultureIgnoreCase))
+                                if (firstChild.InnerText.Equals(Parameters.ReleaseTypeStr[(int)Parameters.ReleaseType.DESKTOP], StringComparison.CurrentCultureIgnoreCase))
                                 {
                                     if (liNode.InnerText.Length > 0)
                                     {
