@@ -27,13 +27,6 @@ namespace ReleaseUtilities
          *                          Same as Embedded
          * 
          * */
-        enum MainMenu
-        {
-            None = '0',
-            PumpUpdate = '1',
-            Embedded = '2',
-            Desktop = '3'
-        }
 
         enum ProcessResults
         {
@@ -43,7 +36,7 @@ namespace ReleaseUtilities
             BACK,
         }
 
-        static MainMenu menuLevel = MainMenu.None;
+        static Parameters.ReleaseType menuLevel = Parameters.ReleaseType.NONE;
         static ProcessResults result;
         static string releaseDetails;
         static Version currentRelease, lastRelease;
@@ -59,16 +52,16 @@ namespace ReleaseUtilities
 
                 switch (menuLevel)
                 {
-                    case MainMenu.Desktop:
-                    case MainMenu.Embedded:
-                        EnablerRelease eRelease = new EnablerRelease(currentRelease, lastRelease);
+                    case Parameters.ReleaseType.DESKTOP:
+                    case Parameters.ReleaseType.EMBEDDED:
+                        EnablerRelease eRelease = new EnablerRelease(menuLevel, currentRelease, lastRelease);
                         eRelease.Start();
                         break;
-                    case MainMenu.PumpUpdate:
+                    case Parameters.ReleaseType.PUMPUPDATE:
                         PumpUpdateRelease pRelease = new PumpUpdateRelease(Convert.ToDateTime(releaseDetails));
                         pRelease.Start();
                         break;
-                    case MainMenu.None:
+                    case Parameters.ReleaseType.NONE:
                         break;
                 }
                 Console.WriteLine("Completed, Run another one? y");
@@ -100,11 +93,11 @@ namespace ReleaseUtilities
                 DisplayMenu();
                 switch(menuLevel)
                 {
-                    case MainMenu.None:
+                    case Parameters.ReleaseType.NONE:
                         char choice = Console.ReadLine()[0];
                         if (choice >= '1' && choice <= '3')
                         {
-                            menuLevel = (MainMenu)Convert.ToInt32(choice);
+                            menuLevel = (Parameters.ReleaseType)Convert.ToInt32(choice - '0');
                             result = ProcessResults.NEXT;
                         }
                         else if (choice == 'q')
@@ -128,18 +121,18 @@ namespace ReleaseUtilities
             string menuStr = "Not a string";
             switch (menuLevel)
             {
-                case MainMenu.None:
-                    menuStr = "Select Release Type:\n" +
-                        "1:\tPump Update\n" +
-                        "2:\tEnabler Embedded\n" +
-                        "3:\tEnabler Desktop\n"+
-                        "Q:\tQuit";
+                case Parameters.ReleaseType.NONE:
+                    menuStr = string.Format("Select Release Type:\n" +
+                        "1:\t{0}\n" +
+                        "2:\t{1}\n" +
+                        "3:\t{2}\n"+
+                        "Q:\tQuit", Parameters.ReleaseTypeStr[1], Parameters.ReleaseTypeStr[2], Parameters.ReleaseTypeStr[3]);
                     break;
-                case MainMenu.PumpUpdate:
+                case Parameters.ReleaseType.PUMPUPDATE:
                     menuStr = "Please Enter Release Date:\t(2018-10-05) or 'b' Go Back";
                     break;
-                case MainMenu.Desktop:
-                case MainMenu.Embedded:
+                case Parameters.ReleaseType.DESKTOP:
+                case Parameters.ReleaseType.EMBEDDED:
                     string releaseMode = "Current ";
                     if (result == ProcessResults.NEXT2)
                     {
@@ -160,7 +153,7 @@ namespace ReleaseUtilities
         {
             if (subMenuInput == "b")
             {
-                menuLevel = MainMenu.None;
+                menuLevel = Parameters.ReleaseType.NONE;
                 result = ProcessResults.BACK;
                 return ; // exit to main menu
             }
@@ -170,13 +163,13 @@ namespace ReleaseUtilities
 
             switch(menuLevel)
             {
-                case MainMenu.PumpUpdate:
+                case Parameters.ReleaseType.PUMPUPDATE:
                     // expecting to have a date time
                     if (ValidateDateTime(subMenuInput))
                         result = ProcessResults.GOOD;
                     break;
-                case MainMenu.Desktop:
-                case MainMenu.Embedded:
+                case Parameters.ReleaseType.DESKTOP:
+                case Parameters.ReleaseType.EMBEDDED:
                     // expecting to have a version
                     if (ValidateVersion(subMenuInput))
                         if (result == ProcessResults.NEXT2)

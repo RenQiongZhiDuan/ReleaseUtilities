@@ -43,5 +43,10 @@ namespace ReleaseUtilities
                 Console.WriteLine(message);
             }
         }
+
+        public static void WriteToHtml(string filePath, bool overwrite, string innerText, string HtmlFormat, string color)
+        {
+
+        }
     }
 }

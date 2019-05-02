@@ -32,33 +32,34 @@ namespace ReleaseUtilities
         
         public void Start()
         {
-            Task<List<IReleaseItem>> GetFileFromDir = new Task<List<IReleaseItem>>(()=> GetDirItem());
+            Task<KeyValuePair<string, List<IReleaseItem>>> GetFileFromDir = new Task<KeyValuePair<string, List<IReleaseItem>>>(()=> GetDirItem());
             GetFileFromDir.Start();
 
-            Task<List<IReleaseItem>> GetNotesFromPendingNotes = new Task<List<IReleaseItem>>(() => GetPendingNotes());
+            Task<KeyValuePair<string, List<IReleaseItem>>> GetNotesFromPendingNotes = new Task<KeyValuePair<string, List<IReleaseItem>>>(() => GetPendingNotes());
             GetNotesFromPendingNotes.Start();
 
-            Task<List<IReleaseItem>> GetLocalNotesFromPumpUpdateNotes = new Task<List<IReleaseItem>>(() => GetLocalPumpUpdateNotes());
+            Task<KeyValuePair<string, List<IReleaseItem>>> GetLocalNotesFromPumpUpdateNotes = new Task<KeyValuePair<string, List<IReleaseItem>>>(() => GetLocalPumpUpdateNotes());
              GetLocalNotesFromPumpUpdateNotes.Start();
 
-            Task<List<IReleaseItem>> GetVersionFromTable = new Task<List<IReleaseItem>>(() => GetVersionListFromPage());
+            Task<KeyValuePair<string, List<IReleaseItem>>> GetVersionFromTable = new Task<KeyValuePair<string, List<IReleaseItem>>>(() => GetVersionListFromPage());
             GetVersionFromTable.Start();
 
             // wait for all tasks to complete
             Task.WaitAll(GetFileFromDir, GetNotesFromPendingNotes, GetLocalNotesFromPumpUpdateNotes, GetVersionFromTable);
 
-            List<IReleaseItem> DirItems = GetFileFromDir.Result;
-            List<IReleaseItem> PendingItems = GetNotesFromPendingNotes.Result;
-            List<IReleaseItem> PumpUpdateItems = GetLocalNotesFromPumpUpdateNotes.Result;
-            List<IReleaseItem> TableVersions = GetVersionFromTable.Result;
+            KeyValuePair<string, List<IReleaseItem>> DirItems = GetFileFromDir.Result;
+            KeyValuePair<string, List<IReleaseItem>> PendingItems = GetNotesFromPendingNotes.Result;
+            KeyValuePair<string, List<IReleaseItem>> PumpUpdateItems = GetLocalNotesFromPumpUpdateNotes.Result;
+            KeyValuePair<string, List<IReleaseItem>> TableVersions = GetVersionFromTable.Result;
 
-            // this merged content is used to replace the one in pumpupdate
-            List<IReleaseItem> MergedContent = MergeNotes(PendingItems, PumpUpdateItems);
+            // this merged content is used to replace the one in pump update
+            List<IReleaseItem> MergedContent = MergeNotes(PendingItems.Value, PumpUpdateItems.Value);
 
             StringBuilder outputStr = new StringBuilder(); 
-            foreach(IReleaseItem item in MergedContent)
+            // page content
+            foreach(HTMLElement item in MergedContent)
             {
-                outputStr.AppendLine(item.NameWithTag);
+                outputStr.AppendLine(item.OuterHtml);
 
                 foreach(var notes in item.Notes)
                 {
@@ -69,28 +70,26 @@ namespace ReleaseUtilities
             YLog.WriteTo(Parameters.GetPumpUpdateTempHtmPath, true, outputStr.ToString());
 
             // compare construction version with PumpUpdate Table version
-            YLog.WriteTo(Parameters.GetPumpUpdateTempTxtPath, true, VersionComparer.CompareVersions(GetConstructionFolder, DirItems, Parameters.GetLocalPumpUpdatePath + " - Driver Table", TableVersions));
+            // file compare with html
+            YLog.WriteTo(Parameters.GetPumpUpdateTempTxtPath, true, VersionComparer.CompareVersions( DirItems,  TableVersions));
 
             // compare temp version with merged content
-            YLog.WriteTo(Parameters.GetPumpUpdateTempTxtPath, false, VersionComparer.CompareVersions(GetConstructionFolder, DirItems, Parameters.GetPumpUpdateTempHtmPath, MergedContent));
-
-            // Console.ReadKey();
+            // html compare with html
+            YLog.WriteTo(Parameters.GetPumpUpdateTempTxtPath, false, VersionComparer.CompareVersions( DirItems, new KeyValuePair<string, List<IReleaseItem>>(Parameters.GetPumpUpdateTempHtmPath, MergedContent)));
         }
-
 
         string GetConstructionFolder
         {
             get
             {
                 string releaseDateFormat = _releaseDate.ToString("yyyy.MM.dd.0");
-                return Path.Combine(Parameters.ServerConstructionPath, releaseDateFormat);
+                return Path.Combine(Parameters.ServerPumpUpdateConstructionPath, releaseDateFormat);
             }
         }
 
-
         #region Support Methods
 
-        private List<IReleaseItem> GetDirItem()
+        private KeyValuePair<string, List<IReleaseItem>> GetDirItem()
         {
             return DirectoryOperator.GetFileVersionsFromDir(GetConstructionFolder, Parameters.ReleaseType.PUMPUPDATE);
         }
@@ -105,10 +104,10 @@ namespace ReleaseUtilities
         ///     </ul>
         /// </summary>
         /// <returns></returns>
-        private List<IReleaseItem> GetPendingNotes()
+        private KeyValuePair<string, List<IReleaseItem>> GetPendingNotes()
         {
             WebPageAnalyzer webAnalyzer = new WebPageAnalyzer(Parameters.GetLocalPendingPath);
-            return webAnalyzer.AnalyzeSectionContent(Parameters.PendingChanges.ReadyToRelease);
+            return new KeyValuePair<string, List<IReleaseItem>>(Parameters.GetLocalPendingPath, webAnalyzer.AnalyzeSectionContent(Parameters.PendingChanges.ReadyToRelease));
         }
 
         /// <summary>
@@ -121,10 +120,10 @@ namespace ReleaseUtilities
         ///     </ul> 
         /// </summary>
         /// <returns></returns>
-        private List<IReleaseItem> GetLocalPumpUpdateNotes()
+        private KeyValuePair<string, List<IReleaseItem>> GetLocalPumpUpdateNotes()
         {
             WebPageAnalyzer webAnalyzer = new WebPageAnalyzer(Parameters.GetLocalPumpUpdatePath);
-            return webAnalyzer.AnalyzeSectionContent(_releaseDate.ToString("dd MMMM yyyy"));
+            return new KeyValuePair<string, List<IReleaseItem>>(Parameters.GetLocalPumpUpdatePath, webAnalyzer.AnalyzeSectionContent(_releaseDate.ToString("dd MMMM yyyy")));
         }
 
         /// <summary>
@@ -132,15 +131,15 @@ namespace ReleaseUtilities
         /// 
         /// </summary>
         /// <returns></returns>
-        private List<IReleaseItem> GetVersionListFromPage()
+        private KeyValuePair<string, List<IReleaseItem>> GetVersionListFromPage()
         {
             WebPageAnalyzer webAnalyzer = new WebPageAnalyzer(Parameters.GetLocalPumpUpdatePath);
-            return webAnalyzer.AnalyzeTable();
+            return new KeyValuePair<string, List<IReleaseItem>>("Table in "+Parameters.GetLocalPumpUpdatePath, webAnalyzer.AnalyzeTable());
         }
 
         private List<IReleaseItem> MergeNotes(List<IReleaseItem> sourceItems, List<IReleaseItem> targetItems)
         {
-            return WebPageAnalyzer.Merge(sourceItems, targetItems);
+            return WebPageAnalyzer.MergeHTMLNotes(sourceItems, targetItems);
         }
         #endregion
     }

@@ -10,7 +10,9 @@ namespace ReleaseUtilities
 {
     static public class Parameters
     {
-        public static string ServerConstructionPath = @"\\appserv\files\Releases\Construction\PumpUpdate\";
+        public static string ServerPumpUpdateConstructionPath = @"\\appserv\files\Releases\Construction\PumpUpdate\";
+
+        public static string ServerEnablerConstructionPath = @"\\appserv\files\Releases\Construction\Enabler\";
 
         public static string ServerReleaseNotePath = @"\\appserv\files\Releases\Internal Releases\";
 
@@ -20,8 +22,13 @@ namespace ReleaseUtilities
 
         static string PumpUpdateReleaseNotes = "PumpUpdate.htm";
 
-        static string TempHtmFile = "Temp.htm";
-        static string TempTxtFile = "Temp.txt";
+        static string TempFolder = @"c:\Temp\";
+
+        static string PumpUpdateTempHtmFile = "PumpUpdateTemp.htm";
+        static string PumpUpdateTempTxtFile = "PumpUpdateTemp.txt";
+
+        public static string Same = "\r\nOK";
+        public static string Diff = "\r\nDiff";
 
         public static List<string> ValidPumpDriverUpdateExtList = new List<string>() { ".dll", ".app", ".nxe", ".nei" };
 
@@ -43,12 +50,13 @@ namespace ReleaseUtilities
 
         public enum ReleaseType
         {
-            DESKTOP,
-            EMBEDDED,
-            PUMPUPDATE,
+            NONE = 0,
+            PUMPUPDATE = 1,
+            EMBEDDED = 2,
+            DESKTOP = 3,
         }
 
-        public static string[] ReleaseTypeStr =  { "Desktop", "Embedded", "PumpUpdate" };
+        public static string[] ReleaseTypeStr =  { "None", "Pump Update" ,  "Enabler Embedded", "Enabler Desktop", };
 
         public static string LogFolder = @"C:\";
 
@@ -63,11 +71,16 @@ namespace ReleaseUtilities
             }
         }
 
+        public static string GetTempFile(string fileName)
+        {
+            return Path.Combine(Parameters.TempFolder, fileName);
+        }
+
         public static string GetPumpUpdateTempHtmPath
         {
             get
             {
-                return Path.Combine(Parameters.localPumpUpdateNotesPath, Parameters.TempHtmFile);
+                return Path.Combine(Parameters.localPumpUpdateNotesPath, Parameters.PumpUpdateTempHtmFile);
             }
         }
 
@@ -75,7 +88,7 @@ namespace ReleaseUtilities
         {
             get
             {
-                return Path.Combine(Parameters.localPumpUpdateNotesPath, Parameters.TempTxtFile);
+                return Path.Combine(Parameters.localPumpUpdateNotesPath, Parameters.PumpUpdateTempTxtFile);
             }
         }
 
